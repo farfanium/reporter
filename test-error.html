@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Duplicate Report Error</title>
+</head>
+<body>
+    <h1>Test Duplicate Report Error</h1>
+    <button onclick="testDuplicateError()">Test Duplicate Path Error</button>
+    <div id="result"></div>
+
+    <script>
+        async function testDuplicateError() {
+            try {
+                const response = await fetch('http://localhost:8080/api/reports', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: 'Duplicate Test',
+                        path: '/red/csv'
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById('result').innerHTML = `
+                    <h3>Response:</h3>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Success:</strong> ${data.success}</p>
+                    <p><strong>Error:</strong> ${data.error}</p>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h3>Error:</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

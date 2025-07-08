@@ -1,0 +1,23 @@
+---
+logging:
+  level:
+    com.reporter: INFO
+    org.springframework.web: WARN
+    root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n"
+  file:
+    name: /app/logs/reporter.log
+    max-size: 100MB
+    max-history: 30
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: always

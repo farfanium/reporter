@@ -1,0 +1,170 @@
+# The Reporter - .gitignore
+
+# ====================
+# General
+# ====================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.log
+*.tmp
+*.temp
+*~
+
+# ====================
+# IDE / Editor
+# ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ====================
+# Node.js / Frontend
+# ====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage/
+.nyc_output
+
+# ====================
+# Java / Spring Boot
+# ====================
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Gradle
+backend/.gradle/
+backend/build/
+backend/gradle/wrapper/gradle-wrapper.jar
+backend/gradle/wrapper/gradle-wrapper.properties
+backend/gradlew
+backend/gradlew.bat
+backend/out/
+
+# Maven (if used)
+backend/target/
+backend/pom.xml.tag
+backend/pom.xml.releaseBackup
+backend/pom.xml.versionsBackup
+backend/pom.xml.next
+backend/release.properties
+backend/dependency-reduced-pom.xml
+backend/buildNumber.properties
+backend/.mvn/timing.properties
+
+# Spring Boot
+backend/spring-boot-*.log
+backend/application-*.yml
+backend/application-*.properties
+
+# ====================
+# Application Specific
+# ====================
+# Runtime data and logs
+data/logs/*.log
+!data/logs/.gitkeep
+
+# Configuration files (may contain sensitive info)
+data/config/reports.yaml
+!data/config/.gitkeep
+
+# Production environment files
+.env.production
+.env.prod
+
+# NAS mount points and sample data
+nas/
+sample-data/
+test-data/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# ====================
+# Build artifacts
+# ====================
+dist/
+build/
+target/
+
+# ====================
+# Docker
+# ====================
+.dockerignore
+
+# ====================
+# OS Generated files
+# ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ====================
+# Temporary files
+# ====================
+*.tmp
+*.temp
+*.swp
+*.swo
+.#*
+#*#
+
+# ====================
+# Security
+# ====================
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.jks
+secrets/
+.secrets

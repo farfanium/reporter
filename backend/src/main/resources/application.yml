@@ -1,0 +1,39 @@
+server:
+  port: ${SERVER_PORT:8080}
+  
+spring:
+  application:
+    name: reporter-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:50MB}
+
+logging:
+  level:
+    com.reporter: ${LOG_LEVEL:INFO}
+    org.springframework.web: ${WEB_LOG_LEVEL:WARN}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+app:
+  nas:
+    base-path: ${NAS_BASE_PATH:/nas/reports}
+    allowed-extensions: ${ALLOWED_EXTENSIONS:xlsx,xls,csv,txt,tsv}
+  storage:
+    config-path: ${CONFIG_PATH:/app/config/reports.yaml}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
