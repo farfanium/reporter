@@ -41,25 +41,29 @@ public class FolderService {
                 return new ArrayList<>();
             }
             
-            // List directories only
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(resolvedPath, Files::isDirectory)) {
-                List<FolderItem> folders = new ArrayList<>();
+            // List directories and files
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(resolvedPath)) {
+                List<FolderItem> items = new ArrayList<>();
                 
                 for (Path path : stream) {
                     try {
                         FolderItem item = createFolderItem(path, requestedPath);
-                        folders.add(item);
+                        items.add(item);
                     } catch (Exception e) {
-                        log.warn("Error processing folder: {}", path, e);
-                        // Continue processing other folders
+                        log.warn("Error processing item: {}", path, e);
+                        // Continue processing other items
                     }
                 }
                 
-                // Sort by name
-                folders.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                // Sort by name, directories first
+                items.sort((a, b) -> {
+                    if (a.isDirectory() && !b.isDirectory()) return -1;
+                    if (!a.isDirectory() && b.isDirectory()) return 1;
+                    return a.getName().compareToIgnoreCase(b.getName());
+                });
                 
-                log.debug("Found {} folders in {}", folders.size(), resolvedPath);
-                return folders;
+                log.debug("Found {} items in {}", items.size(), resolvedPath);
+                return items;
                 
             } catch (IOException e) {
                 log.error("Error reading directory: {}", resolvedPath, e);
@@ -103,6 +107,7 @@ public class FolderService {
 
     private FolderItem createFolderItem(Path path, String requestedPath) throws IOException {
         String fileName = path.getFileName().toString();
+        boolean isDirectory = Files.isDirectory(path);
         
         // Create the logical path for the frontend
         String logicalPath;
@@ -112,8 +117,8 @@ public class FolderService {
             logicalPath = requestedPath.endsWith("/") ? requestedPath + fileName : requestedPath + "/" + fileName;
         }
         
-        // Check if folder has subfolders
-        boolean hasSubfolders = hasSubdirectories(path);
+        // Check if folder has subfolders (only for directories)
+        boolean hasSubfolders = isDirectory && hasSubdirectories(path);
         
         // Get file attributes
         long size = 0;
@@ -128,7 +133,7 @@ public class FolderService {
             log.debug("Could not read attributes for: {}", path, e);
         }
         
-        return new FolderItem(fileName, logicalPath, true, hasSubfolders, size, lastModified);
+        return new FolderItem(fileName, logicalPath, isDirectory, hasSubfolders, size, lastModified);
     }
 
     private boolean hasSubdirectories(Path path) {

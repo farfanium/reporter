@@ -28,13 +28,36 @@ reporter/
 
 ## Features
 
-### Frontend (Next.js)
+### Frontend Options
+
+#### Java Web App (Integrated)
+- **Spring Boot MVC** with Thymeleaf templates
+- **Hosted within the backend** - no separate frontend needed
+- **Server-side rendering** with modern UI
+- **Same API endpoints** as other frontends
+- **Zero-configuration** - just run the backend
+
+#### Next.js Frontend (Advanced)
+- **Modern React Framework** with TypeScript
+- **Server-side rendering** and static generation
+- **Hot reload** development experience
+- **Component-based architecture**
+- **Advanced build optimization**
+
+#### Simple Frontend (No Dependencies)
+- **Pure HTML/CSS/JavaScript** - no build process required
+- **Instant setup** - just open in browser
+- **Universal deployment** - works anywhere
+- **Lightweight** - single file application
+- **Same functionality** as other versions
+
+### Common Features (Both Frontends)
 - **Collapsible sidebar** with report listings
 - **Sortable and filterable data tables** for viewing file contents
 - **File navigation** within NAS folders
 - **Add new reports** functionality
 - **Export data** to CSV
-- **Responsive design** with Tailwind CSS
+- **Responsive design** for mobile and desktop
 - **Local storage** for user preferences
 
 ### Backend (Java Spring Boot)
@@ -47,28 +70,9 @@ reporter/
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ (for frontend)
 - Java 17+ (for backend)
+- Node.js 18+ (for Next.js frontend only)
 - Access to NAS storage (or local directory for testing)
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-The frontend will be available at `http://localhost:3000`
 
 ### Backend Setup
 
@@ -88,6 +92,73 @@ The frontend will be available at `http://localhost:3000`
    ```
 
 The backend API will be available at `http://localhost:8080`
+
+### Frontend Setup
+
+#### Option 1: Java Web App (Integrated - Recommended)
+
+The Java web app is already included in the backend. Once you start the backend:
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Build and run the application:
+   ```bash
+   ./gradlew bootRun
+   ```
+
+3. Open your browser and navigate to: `http://localhost:8080`
+
+The complete web application (frontend + backend) is now running on port 8080!
+
+#### Option 2: Next.js Frontend (Advanced)
+
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+The frontend will be available at `http://localhost:3000`
+
+#### Option 3: Simple Frontend (No Dependencies)
+
+1. Navigate to the simple-frontend directory:
+   ```bash
+   cd simple-frontend
+   ```
+
+2. Run the launcher script:
+   ```bash
+   # Unix/Linux/macOS
+   ./start.sh
+   
+   # Windows
+   start.bat
+   ```
+
+   Or open directly in browser:
+   ```bash
+   # Option 1: Direct file access
+   open index.html
+   
+   # Option 2: Simple HTTP server (if you have Python)
+   python -m http.server 8000
+   # Then visit http://localhost:8000
+   ```
+
+The simple frontend will be available immediately in your browser.
 
 ## Production Deployment
 
@@ -427,6 +498,16 @@ The frontend automatically proxies API requests to the backend. You can modify t
 
 ## Usage
 
+### Getting Started
+
+1. **Start the Backend**: Ensure the Java backend is running at `http://localhost:8080`
+
+2. **Choose Your Frontend**:
+   - **Next.js Frontend**: Full-featured with hot reload and TypeScript
+   - **Simple Frontend**: No dependencies, instant setup
+
+### Using the Application
+
 1. **Add a Report**: Click "Add" in the sidebar to create a new report by specifying:
    - Report name
    - NAS path (e.g., `/nas/reports/sales`)
@@ -445,6 +526,33 @@ The frontend automatically proxies API requests to the backend. You can modify t
 5. **Filter Data**: Use the filter inputs above each column to narrow down results
 
 6. **Export Data**: Click "Export CSV" to download filtered data
+
+### Frontend Comparison
+
+| Feature | Next.js Frontend | Simple Frontend |
+|---------|------------------|-----------------|
+| **Setup** | Requires Node.js + npm install | Just open HTML file |
+| **Dependencies** | 200+ npm packages | Zero dependencies |
+| **Build Process** | Required | None |
+| **TypeScript** | ✅ Full support | ❌ Plain JavaScript |
+| **Hot Reload** | ✅ Instant updates | ❌ Manual refresh |
+| **Performance** | ✅ Optimized bundles | ✅ Lightweight |
+| **Deployment** | Build + serve | Copy files |
+| **Customization** | Component-based | Direct HTML/CSS/JS |
+| **Mobile Support** | ✅ Responsive | ✅ Responsive |
+| **All Features** | ✅ Complete | ✅ Complete |
+
+**Choose Simple Frontend if you want:**
+- Instant setup without Node.js
+- Easy deployment anywhere
+- Simple customization
+- No build process
+
+**Choose Next.js Frontend if you want:**
+- Modern development experience
+- TypeScript support
+- Hot reload during development
+- Component-based architecture
 
 ## File Format Support
 

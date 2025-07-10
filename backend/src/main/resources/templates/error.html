@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Reporter</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Reporter</h1>
+            <nav class="nav">
+                <a th:href="@{/}" class="nav-link">Reports</a>
+                <a th:href="@{/browse}" class="nav-link">Browse</a>
+                <a th:href="@{/add-report}" class="nav-link">Add Report</a>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="error-container">
+                <div class="error-icon">❌</div>
+                <h2>Error</h2>
+                <p th:text="${error}" class="error-message">An error occurred</p>
+                <div class="error-actions">
+                    <button class="btn btn-primary" onclick="history.back()">← Go Back</button>
+                    <a th:href="@{/}" class="btn btn-secondary">Home</a>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 Reporter - Report Management System</p>
+        </footer>
+    </div>
+
+    <script th:src="@{/js/app.js}"></script>
+</body>
+</html>

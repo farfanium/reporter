@@ -43,8 +43,13 @@ public class GlobalExceptionHandler {
         });
         
         log.error("Validation errors: {}", errors);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Validation failed"));
+        
+        // Return the validation errors as data and include them in the error message
+        StringBuilder errorMessage = new StringBuilder("Validation failed: ");
+        errors.forEach((field, message) -> errorMessage.append(field).append(": ").append(message).append("; "));
+        
+        ApiResponse<Map<String, String>> response = new ApiResponse<>(false, errors, errorMessage.toString());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(Exception.class)
