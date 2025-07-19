@@ -10,6 +10,7 @@ const state = {
     loading: false,
     tableData: [],
     filteredData: [],
+    currentHeaders: null,
     sortColumn: null,
     sortDirection: 'asc',
     columnFilters: {},
@@ -194,6 +195,14 @@ function showReportView() {
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('reportView').style.display = 'block';
     document.getElementById('dataView').style.display = 'none';
+    
+    // Clear filters when returning to report view from file view
+    if (state.selectedFile) {
+        clearFiltersState();
+        state.selectedFile = null;
+        state.selectedFileName = '';
+    }
+    
     if (state.selectedReport) {
         updateBreadcrumb(['Reports', state.selectedReport.name]);
     }
@@ -296,8 +305,8 @@ function renderReportsList() {
              data-report-id="${report.id}">
             <div class="report-main" onclick="selectReport('${report.id}')">
                 <div class="report-info">
-                    <h3 class="report-name">${report.name}</h3>
-                    <p class="report-path">${report.path}</p>
+                    <h3 class="report-name" title="${report.name}">${report.name}</h3>
+                    <p class="report-path" title="${report.path}">${report.path}</p>
                     <div class="report-meta">
                         <span class="file-count">${(report.files || []).length} files</span>
                         <span class="report-date">${formatDate(report.createdAt)}</span>
@@ -348,6 +357,9 @@ async function selectReport(reportId) {
         state.selectedFile = null;
         state.selectedFileName = '';
         
+        // Reset filters when switching reports
+        clearFiltersState();
+        
         // Update UI
         renderReportsList(); // Update selection
         showReportView();
@@ -394,10 +406,19 @@ async function loadReportFiles() {
             return;
         }
         
-        // Store all files and reset pagination
-        state.allFiles = [...files].sort((a, b) => a.name.localeCompare(b.name));
+        // Store all files and reset pagination - sort by most recent first
+        state.allFiles = [...files].sort((a, b) => {
+            // Sort by last modified date (most recent first)
+            const dateA = new Date(a.lastModified || 0);
+            const dateB = new Date(b.lastModified || 0);
+            return dateB - dateA; // Descending order (newest first)
+        });
         state.filteredFiles = [...state.allFiles];
         state.fileCurrentPage = 1;
+        
+        // Reset file sorting state to match the default sort
+        fileSortColumn = 'lastModified';
+        fileSortDirection = 'desc';
         
         renderFileList();
         
@@ -439,11 +460,11 @@ function renderFileList() {
             </div>
         </div>
         <div class="file-list-header">
-            <div class="header-cell">Type</div>
-            <div class="header-cell sortable" onclick="sortFiles('name')">Name</div>
-            <div class="header-cell sortable" onclick="sortFiles('extension')">Type</div>
-            <div class="header-cell sortable" onclick="sortFiles('size')">Size</div>
-            <div class="header-cell sortable" onclick="sortFiles('lastModified')">Modified</div>
+            <div class="header-cell"></div>
+            <div class="header-cell sortable ${fileSortColumn === 'name' ? 'sorted-' + fileSortDirection : ''}" onclick="sortFiles('name')">Name</div>
+            <div class="header-cell sortable ${fileSortColumn === 'extension' ? 'sorted-' + fileSortDirection : ''}" onclick="sortFiles('extension')">Type</div>
+            <div class="header-cell sortable ${fileSortColumn === 'size' ? 'sorted-' + fileSortDirection : ''}" onclick="sortFiles('size')">Size</div>
+            <div class="header-cell sortable ${fileSortColumn === 'lastModified' ? 'sorted-' + fileSortDirection : ''}" onclick="sortFiles('lastModified')">Modified</div>
         </div>
         <div class="file-list-body">
             ${currentPageFiles.map(file => {
@@ -533,8 +554,8 @@ function formatDateTime(dateString) {
 }
 
 // File sorting functionality
-let fileSortColumn = 'name';
-let fileSortDirection = 'asc';
+let fileSortColumn = 'lastModified';
+let fileSortDirection = 'desc';
 
 function sortFiles(column) {
     if (!state.filteredFiles.length) return;
@@ -646,6 +667,9 @@ async function selectFile(fileName) {
         const fileData = await getFileData(state.selectedReport.id, fileName);
         state.selectedFile = fileData;
         
+        // Reset filters when switching files
+        clearFiltersState();
+        
         showDataView();
         renderFileData();
         
@@ -706,7 +730,14 @@ function renderDataTable() {
         return;
     }
     
-    const headers = Object.keys(state.tableData[0]);
+    // Use headers from backend if available (preserves original file order), otherwise fall back to Object.keys
+    const headers = (state.selectedFile.headers && state.selectedFile.headers.length > 0) 
+        ? state.selectedFile.headers 
+        : Object.keys(state.tableData[0]);
+    
+    // Store headers in state for consistent use across functions
+    state.currentHeaders = headers;
+    
     state.filteredData = [...state.tableData];
     
     // Apply filters
@@ -776,7 +807,7 @@ function renderTableBody() {
         return;
     }
     
-    const headers = Object.keys(state.tableData[0]);
+    const headers = state.currentHeaders || Object.keys(state.tableData[0]);
     tableBody.innerHTML = pageData.map(row => `
         <tr>
             ${headers.map(header => `<td>${row[header] || ''}</td>`).join('')}
@@ -840,6 +871,34 @@ function clearFilters() {
     renderTableBody();
     updatePagination();
     updateTableInfo();
+}
+
+function clearFiltersState() {
+    // Clear all filter-related state
+    state.columnFilters = {};
+    state.currentHeaders = null;
+    state.currentPage = 1;
+    state.sortColumn = null;
+    state.sortDirection = 'asc';
+    state.filtersVisible = false;
+    
+    // Hide filters panel if it's visible
+    const filtersPanel = document.getElementById('filtersPanel');
+    const filterBtn = document.querySelector('.btn-filter');
+    
+    if (filtersPanel) {
+        filtersPanel.style.display = 'none';
+    }
+    
+    if (filterBtn) {
+        filterBtn.classList.remove('active');
+    }
+    
+    // Clear any filter inputs when they exist
+    const filterInputs = document.querySelectorAll('#filtersGrid input');
+    filterInputs.forEach(input => {
+        input.value = '';
+    });
 }
 
 function toggleFilters() {
@@ -1250,6 +1309,7 @@ window.selectCurrentFolder = selectCurrentFolder;
 window.sortTable = sortTable;
 window.updateFilter = updateFilter;
 window.clearFilters = clearFilters;
+window.clearFiltersState = clearFiltersState;
 window.toggleFilters = toggleFilters;
 window.exportToCsv = exportToCsv;
 window.goToPage = goToPage;

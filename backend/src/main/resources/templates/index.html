@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Reporter</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
@@ -40,8 +42,8 @@
                         <div class="report-item" th:each="report : ${reports}">
                             <div class="report-main" th:attr="data-report-id=${report.id}" onclick="selectReportFromData(this)">
                                 <div class="report-info">
-                                    <h3 class="report-name" th:text="${report.name}">Report Name</h3>
-                                    <p class="report-path" th:text="${report.path}">Report Path</p>
+                                    <h3 class="report-name" th:text="${report.name}" th:title="${report.name}">Report Name</h3>
+                                    <p class="report-path" th:text="${report.path}" th:title="${report.path}">Report Path</p>
                                     <div class="report-meta">
                                         <span class="file-count">
                                             <span th:text="${report.files?.size() ?: 0}">0</span> files
@@ -94,7 +96,7 @@
                 </div>
                 
                 <div class="data-view" id="dataView" style="display: none;">
-                    <!-- <div class="data-header">
+                    <div class="data-header">
                         <div class="data-breadcrumb">
                             <span class="breadcrumb-item clickable" onclick="showReportView()">Report</span>
                             <span class="breadcrumb-separator">›</span>
@@ -103,7 +105,7 @@
                         <div class="data-actions">
                             <button class="btn-export" onclick="exportToCsv()">Export CSV</button>
                         </div>
-                    </div> -->
+                    </div>
                     
                     <div class="data-table-container">
                         <div class="table-controls">

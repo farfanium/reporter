@@ -599,3 +599,49 @@ The application includes comprehensive error handling:
 ## License
 
 This project is licensed under the MIT License.
+
+## Quick Start
+
+### Backend Build & Run
+
+#### Automated Scripts (Recommended)
+
+**macOS/Linux:**
+```bash
+# Validate environment
+./validate-env.sh
+
+# Build backend with environment setup
+./build-backend.sh
+
+# Run backend
+./run-backend.sh
+```
+
+**Windows:**
+```batch
+# Validate environment
+validate-env.bat
+
+# Build backend with environment setup
+build-backend.bat
+
+# Run backend
+run-backend.bat
+```
+
+#### Manual Setup
+```bash
+# Set environment variables (customize as needed)
+export NAS_BASE_PATH="/Volumes/YourNASShare"
+export CONFIG_PATH="./data/config/reports.yaml"
+export SERVER_PORT="8080"
+
+# Build and run
+cd backend
+./gradlew bootRun
+```
+
+See [BACKEND-BUILD.md](BACKEND-BUILD.md) for detailed configuration options.
+
+## Features
