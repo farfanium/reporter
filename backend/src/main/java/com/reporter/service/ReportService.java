@@ -6,12 +6,15 @@ import com.reporter.dto.FileInfo;
 import com.reporter.exception.ReportNotFoundException;
 import com.reporter.exception.FileAccessException;
 import com.reporter.exception.DuplicateReportPathException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.reporter.entity.ReportEntity;
+import com.reporter.entity.FileInfoEntity;
+import com.reporter.repository.ReportRepository;
+import com.reporter.mapper.ReportMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
@@ -20,195 +23,174 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ReportService {
 
     @Value("${app.nas.base-path}")
     private String nasBasePath;
 
-    @Value("${app.storage.config-path}")
-    private String configPath;
-
     @Value("${app.nas.allowed-extensions}")
     private String allowedExtensions;
 
-    private final ObjectMapper yamlMapper;
-    private final Map<String, Report> reportCache = new ConcurrentHashMap<>();
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
-    public ReportService() {
-        this.yamlMapper = new ObjectMapper(new YAMLFactory());
-        this.yamlMapper.registerModule(new JavaTimeModule());
-    }
+    private final ReportRepository reportRepository;
+    private final ReportMapper reportMapper;
+    private final YamlMigrationService yamlMigrationService;
 
     @PostConstruct
     public void init() {
-        loadReports();
+        // Try to migrate from YAML if needed
+        yamlMigrationService.migrateFromYamlIfNeeded();
     }
 
     public List<Report> getAllReports() {
-        lock.readLock().lock();
-        try {
-            return List.copyOf(reportCache.values());
-        } finally {
-            lock.readLock().unlock();
-        }
+        List<ReportEntity> entities = reportRepository.findAll();
+        return reportMapper.toModelList(entities);
     }
 
     public Report getReportById(String id) {
-        lock.readLock().lock();
-        try {
-            Report report = reportCache.get(id);
-            if (report == null) {
-                throw new ReportNotFoundException("Report with id " + id + " not found");
-            }
-            return report;
-        } finally {
-            lock.readLock().unlock();
-        }
+        ReportEntity entity = reportRepository.findById(id)
+                .orElseThrow(() -> new ReportNotFoundException("Report with id " + id + " not found"));
+        return reportMapper.toModel(entity);
     }
 
+    @Transactional
     public Report createReport(CreateReportRequest request) {
-        lock.writeLock().lock();
-        try {
-            // Check for duplicate path
-            Report existingReport = reportCache.values().stream()
-                    .filter(report -> report.getPath().equals(request.getPath()))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (existingReport != null) {
-                throw new DuplicateReportPathException(request.getPath(), existingReport.getName());
-            }
-            
-            String reportId = UUID.randomUUID().toString();
-            List<String> files = scanReportFiles(request.getPath());
-            List<FileInfo> fileDetails = scanReportFileDetails(request.getPath());
-            
-            Report report = Report.builder()
-                    .id(reportId)
-                    .name(request.getName())
-                    .path(request.getPath())
-                    .files(files)
-                    .fileDetails(fileDetails)
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            reportCache.put(reportId, report);
-            saveReports();
-            
-            log.info("Created new report: {} with {} files", report.getName(), files.size());
-            return report;
-        } finally {
-            lock.writeLock().unlock();
+        // Check for duplicate path
+        if (reportRepository.findByPath(request.getPath()).isPresent()) {
+            ReportEntity existing = reportRepository.findByPath(request.getPath()).get();
+            throw new DuplicateReportPathException(request.getPath(), existing.getName());
         }
+        
+        String reportId = UUID.randomUUID().toString();
+        List<String> files = scanReportFiles(request.getPath());
+        List<FileInfo> fileDetails = scanReportFileDetails(request.getPath());
+        
+        ReportEntity entity = ReportEntity.builder()
+                .id(reportId)
+                .name(request.getName())
+                .path(request.getPath())
+                .files(files)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        
+        // Add file details with proper relationship
+        if (fileDetails != null) {
+            for (FileInfo fileInfo : fileDetails) {
+                FileInfoEntity fileInfoEntity = FileInfoEntity.builder()
+                        .name(fileInfo.getName())
+                        .size(fileInfo.getSize())
+                        .lastModified(fileInfo.getLastModified())
+                        .extension(fileInfo.getExtension())
+                        .build();
+                entity.addFileDetail(fileInfoEntity);
+            }
+        }
+
+        ReportEntity savedEntity = reportRepository.save(entity);
+        Report report = reportMapper.toModel(savedEntity);
+        
+        log.info("Created new report: {} with {} files", report.getName(), files.size());
+        return report;
     }
 
+    @Transactional
     public Report updateReport(String id, CreateReportRequest request) {
-        lock.writeLock().lock();
-        try {
-            Report existingReport = reportCache.get(id);
-            if (existingReport == null) {
-                throw new ReportNotFoundException("Report with id " + id + " not found");
+        ReportEntity existingEntity = reportRepository.findById(id)
+                .orElseThrow(() -> new ReportNotFoundException("Report with id " + id + " not found"));
+
+        // Check for duplicate path (excluding current report)
+        reportRepository.findByPath(request.getPath())
+                .filter(entity -> !entity.getId().equals(id))
+                .ifPresent(duplicate -> {
+                    throw new DuplicateReportPathException(request.getPath(), duplicate.getName());
+                });
+
+        List<String> files = scanReportFiles(request.getPath());
+        List<FileInfo> fileDetails = scanReportFileDetails(request.getPath());
+        
+        // Clear existing file details
+        existingEntity.clearFileDetails();
+        
+        // Update basic fields
+        existingEntity.setName(request.getName());
+        existingEntity.setPath(request.getPath());
+        existingEntity.setFiles(files);
+        existingEntity.setUpdatedAt(LocalDateTime.now());
+        
+        // Add new file details
+        if (fileDetails != null) {
+            for (FileInfo fileInfo : fileDetails) {
+                FileInfoEntity fileInfoEntity = FileInfoEntity.builder()
+                        .name(fileInfo.getName())
+                        .size(fileInfo.getSize())
+                        .lastModified(fileInfo.getLastModified())
+                        .extension(fileInfo.getExtension())
+                        .build();
+                existingEntity.addFileDetail(fileInfoEntity);
             }
-
-            // Check for duplicate path (excluding current report)
-            Report duplicateReport = reportCache.values().stream()
-                    .filter(report -> !report.getId().equals(id) && report.getPath().equals(request.getPath()))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (duplicateReport != null) {
-                throw new DuplicateReportPathException(request.getPath(), duplicateReport.getName());
-            }
-
-            List<String> files = scanReportFiles(request.getPath());
-            List<FileInfo> fileDetails = scanReportFileDetails(request.getPath());
-            
-            Report updatedReport = Report.builder()
-                    .id(id)
-                    .name(request.getName())
-                    .path(request.getPath())
-                    .files(files)
-                    .fileDetails(fileDetails)
-                    .createdAt(existingReport.getCreatedAt())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            reportCache.put(id, updatedReport);
-            saveReports();
-            
-            log.info("Updated report: {} with {} files", updatedReport.getName(), files.size());
-            return updatedReport;
-        } finally {
-            lock.writeLock().unlock();
         }
+
+        ReportEntity savedEntity = reportRepository.save(existingEntity);
+        Report report = reportMapper.toModel(savedEntity);
+        
+        log.info("Updated report: {} with {} files", report.getName(), files.size());
+        return report;
     }
 
+    @Transactional
     public void deleteReport(String id) {
-        lock.writeLock().lock();
-        try {
-            Report report = reportCache.remove(id);
-            if (report == null) {
-                throw new ReportNotFoundException("Report with id " + id + " not found");
-            }
-            saveReports();
-            log.info("Deleted report: {}", report.getName());
-        } finally {
-            lock.writeLock().unlock();
-        }
+        ReportEntity entity = reportRepository.findById(id)
+                .orElseThrow(() -> new ReportNotFoundException("Report with id " + id + " not found"));
+        
+        reportRepository.delete(entity);
+        log.info("Deleted report: {}", entity.getName());
     }
 
+    @Transactional
     public Report refreshReport(String id) {
-        lock.writeLock().lock();
-        try {
-            Report report = reportCache.get(id);
-            if (report == null) {
-                throw new ReportNotFoundException("Report with id " + id + " not found");
+        ReportEntity entity = reportRepository.findById(id)
+                .orElseThrow(() -> new ReportNotFoundException("Report with id " + id + " not found"));
+
+        List<String> currentFiles = scanReportFiles(entity.getPath());
+        List<FileInfo> currentFileDetails = scanReportFileDetails(entity.getPath());
+        
+        // Clear existing file details
+        entity.clearFileDetails();
+        
+        // Update files and file details
+        entity.setFiles(currentFiles);
+        entity.setUpdatedAt(LocalDateTime.now());
+        
+        // Add current file details
+        if (currentFileDetails != null) {
+            for (FileInfo fileInfo : currentFileDetails) {
+                FileInfoEntity fileInfoEntity = FileInfoEntity.builder()
+                        .name(fileInfo.getName())
+                        .size(fileInfo.getSize())
+                        .lastModified(fileInfo.getLastModified())
+                        .extension(fileInfo.getExtension())
+                        .build();
+                entity.addFileDetail(fileInfoEntity);
             }
-
-            List<String> currentFiles = scanReportFiles(report.getPath());
-            List<FileInfo> currentFileDetails = scanReportFileDetails(report.getPath());
-            Report updatedReport = Report.builder()
-                    .id(report.getId())
-                    .name(report.getName())
-                    .path(report.getPath())
-                    .files(currentFiles)
-                    .fileDetails(currentFileDetails)
-                    .createdAt(report.getCreatedAt())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-
-            reportCache.put(id, updatedReport);
-            saveReports();
-            
-            log.info("Refreshed report: {} with {} files", updatedReport.getName(), currentFiles.size());
-            return updatedReport;
-        } finally {
-            lock.writeLock().unlock();
         }
+
+        ReportEntity savedEntity = reportRepository.save(entity);
+        Report report = reportMapper.toModel(savedEntity);
+        
+        log.info("Refreshed report: {} with {} files", report.getName(), currentFiles.size());
+        return report;
     }
 
     public List<String> getReportFiles(String reportId) {
-        lock.readLock().lock();
-        try {
-            Report report = reportCache.get(reportId);
-            if (report == null) {
-                throw new ReportNotFoundException("Report with id " + reportId + " not found");
-            }
-            return refreshReportFiles(report);
-        } finally {
-            lock.readLock().unlock();
-        }
+        ReportEntity entity = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportNotFoundException("Report with id " + reportId + " not found"));
+        return entity.getFiles();
     }
 
     private List<String> scanReportFiles(String reportPath) {
@@ -295,77 +277,5 @@ public class ReportService {
         }
         
         return resolvedPath;
-    }
-
-    private List<String> refreshReportFiles(Report report) {
-        try {
-            List<String> currentFiles = scanReportFiles(report.getPath());
-            List<FileInfo> currentFileDetails = scanReportFileDetails(report.getPath());
-            if (!currentFiles.equals(report.getFiles())) {
-                // Update the report with new file list
-                Report updatedReport = Report.builder()
-                        .id(report.getId())
-                        .name(report.getName())
-                        .path(report.getPath())
-                        .files(currentFiles)
-                        .fileDetails(currentFileDetails)
-                        .createdAt(report.getCreatedAt())
-                        .updatedAt(LocalDateTime.now())
-                        .build();
-                
-                reportCache.put(report.getId(), updatedReport);
-                saveReports();
-                log.info("Refreshed files for report: {}", report.getName());
-            }
-            return currentFiles;
-        } catch (Exception e) {
-            log.error("Error refreshing files for report: {}", report.getName(), e);
-            return report.getFiles(); // Return cached files if refresh fails
-        }
-    }
-
-    private void loadReports() {
-        try {
-            Path configFilePath = Paths.get(configPath);
-            if (Files.exists(configFilePath)) {
-                ReportConfig config = yamlMapper.readValue(configFilePath.toFile(), ReportConfig.class);
-                if (config != null && config.getReports() != null) {
-                    config.getReports().forEach(report -> reportCache.put(report.getId(), report));
-                    log.info("Loaded {} reports from configuration", reportCache.size());
-                }
-            } else {
-                log.info("No existing configuration found, starting with empty reports");
-            }
-        } catch (IOException e) {
-            log.error("Error loading reports configuration", e);
-        }
-    }
-
-    private void saveReports() {
-        try {
-            Path configFilePath = Paths.get(configPath);
-            Files.createDirectories(configFilePath.getParent());
-            
-            ReportConfig config = new ReportConfig();
-            config.setReports(List.copyOf(reportCache.values()));
-            
-            yamlMapper.writeValue(configFilePath.toFile(), config);
-            log.debug("Saved {} reports to configuration", reportCache.size());
-        } catch (IOException e) {
-            log.error("Error saving reports configuration", e);
-        }
-    }
-
-    // Inner class for YAML configuration
-    public static class ReportConfig {
-        private List<Report> reports;
-
-        public List<Report> getReports() {
-            return reports;
-        }
-
-        public void setReports(List<Report> reports) {
-            this.reports = reports;
-        }
     }
 }

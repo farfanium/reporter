@@ -269,18 +269,27 @@ public class FileParsingService {
         
         value = value.trim();
         
-        // Try to parse as integer
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            // Not an integer, continue
+        // Try to parse as integer (only if it looks like a pure integer)
+        if (value.matches("-?\\d+")) {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                // If it's too large for int, try long
+                try {
+                    return Long.parseLong(value);
+                } catch (NumberFormatException e2) {
+                    // Fall through to string
+                }
+            }
         }
         
-        // Try to parse as double
-        try {
-            return Double.parseDouble(value);
-        } catch (NumberFormatException e) {
-            // Not a double, continue
+        // Try to parse as double (only decimal numbers, no scientific notation)
+        if (value.matches("-?\\d+\\.\\d+")) {
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException e) {
+                // Not a double, continue
+            }
         }
         
         // Try to parse as boolean
@@ -288,7 +297,7 @@ public class FileParsingService {
             return Boolean.parseBoolean(value);
         }
         
-        // Return as string
+        // Return as string (preserves alphanumeric codes like 54401E143)
         return value;
     }
 }
